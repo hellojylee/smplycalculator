@@ -100,7 +100,7 @@
                 <div class="form-group">
                     <label class="form-label">구성원 수</label>
                     <input type="number" class="form-input" id="memberCount" min="1" max="1000" value="100" inputmode="numeric">
-                    <div class="form-helper">최소 1명, 최대 1,000명. 1,000명 이상은 별도 문의</div>
+                    <div class="form-helper">최소 1명, 최대 1,000명</div>
                 </div>
 
                 <div class="form-group">
@@ -128,7 +128,7 @@
 
             <!-- Pricing Display Section -->
             <div class="card">
-                <h2 class="card-title">월 가격 계산</h2>
+                <h2 class="card-title">견적 계산</h2>
                 
                 <div class="plan-badge" id="planBadge">Business Plan</div>
 
@@ -191,6 +191,20 @@
                         <span class="pricing-value number-transition" id="totalMonthlyPrice">₩250,000</span>
                     </div>
                 </div>
+
+                <div class="pricing-item">
+                    <span class="pricing-label" style="font-size: 1rem; font-weight: 600;">총 연 가격</span>
+                    <span class="pricing-value number-transition" id="totalAnnualPrice">₩3,000,000</span>
+                </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="printQuote()">
+                    <span>🖨️</span> 견적서 출력
+                </button>
+                <button class="btn btn-secondary" onclick="resetForm(this)">
+                    <span>↻</span> 초기화
+                </button>
+            </div>
             </div>
         </div>
 
@@ -293,6 +307,7 @@
     </div>
 
     <script>
+
         // State management
         let state = { useAgent: false, memberCount: 100, assetCount: 1000, additionalAgentCount: 0, annualContract: false };
 
@@ -361,16 +376,12 @@
 
             const planName = state.useAgent ? 'Professional Plan' : 'Business Plan';
             document.getElementById('planBadge').textContent = planName;
-            document.getElementById('quotePlanBadge').textContent = planName;
-            document.getElementById('quotePlan').textContent = planName;
 
             // Agent fields visibility
             const showAgents = state.useAgent;
             document.getElementById('baseAgentGroup').style.display = showAgents ? 'block' : 'none';
             document.getElementById('additionalAgentGroup').style.display = showAgents ? 'block' : 'none';
             document.getElementById('agentPriceRow').style.display = showAgents ? 'flex' : 'none';
-            document.getElementById('quoteAgentRow').style.display = showAgents ? 'flex' : 'none';
-            document.getElementById('quoteAgentPriceRow').style.display = showAgents ? 'flex' : 'none';
             if (showAgents) { document.getElementById('baseAgentCount').value = state.memberCount; }
 
             // Asset hints & min
@@ -384,6 +395,7 @@
             updatePriceElement('agentPrice', prices.agentPrice);
             updatePriceElement('monthlyPrice', prices.monthlyPrice);
             updatePriceElement('totalMonthlyPrice', prices.totalMonthlyPrice);
+            updatePriceElement('totalAnnualPrice', prices.totalMonthlyPrice * 12);
 
             // Member pricing info
             const memberPricingInfo = document.getElementById('memberPricingInfo');
@@ -407,21 +419,9 @@
             document.getElementById('discountBadge').style.display = state.annualContract ? 'inline-block' : 'none';
 
             // Quote
-            document.getElementById('quoteMemberCount').textContent = `${state.memberCount}명`;
-            document.getElementById('quoteAssetCount').textContent = `${state.assetCount.toLocaleString()}개 (기본 제공: ${baseAssets.toLocaleString()}개)`;
             if (state.useAgent) {
                 const totalAgents = state.memberCount + state.additionalAgentCount;
-                document.getElementById('quoteAgentCount').textContent = `${totalAgents}개 (추가: ${state.additionalAgentCount}개)`;
             }
-            document.getElementById('quoteMemberBase').textContent = formatCurrency(prices.memberBase);
-            document.getElementById('quoteMemberAdditionalRow').style.display = prices.memberAdditional > 0 ? 'flex' : 'none';
-            document.getElementById('quoteMemberAdditional').textContent = formatCurrency(prices.memberAdditional);
-            document.getElementById('quoteAssetPrice').textContent = formatCurrency(prices.assetPrice);
-            document.getElementById('quoteAgentPrice').textContent = formatCurrency(prices.agentPrice);
-            document.getElementById('quoteMonthlyBase').textContent = formatCurrency(prices.monthlyPrice);
-            document.getElementById('quoteDiscount').textContent = state.annualContract ? '20% (연간 계약)' : '0%';
-            document.getElementById('quoteFinalMonthly').textContent = formatCurrency(prices.totalMonthlyPrice);
-            document.getElementById('quoteFinalAnnual').textContent = formatCurrency(prices.totalMonthlyPrice * 12);
 
             saveState();
         }
@@ -479,22 +479,6 @@
             if (value >= 0) { state.additionalAgentCount = value; updateUI(); }
         });
 
-        function saveQuote(btn) {
-            const quoteData = { date: new Date().toLocaleDateString('ko-KR'), plan: state.useAgent ? 'Professional Plan' : 'Business Plan', configuration: state, prices: calculatePrices() };
-            const dataStr = JSON.stringify(quoteData, null, 2);
-            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-            const exportFileDefaultName = `simply_quote_${new Date().getTime()}.json`;
-            const linkElement = document.createElement('a');
-            linkElement.setAttribute('href', dataUri);
-            linkElement.setAttribute('download', exportFileDefaultName);
-            linkElement.click();
-
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '<span class="loader"></span> 저장 중...'; btn.disabled = true;
-            setTimeout(() => {
-                btn.innerHTML = '<span>✓</span> 저장 완료!';
-                setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 1500);
-            }, 500);
         }
 
         function printQuote() { window.print(); }
@@ -541,7 +525,7 @@
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey || e.metaKey) {
                 switch(e.key) {
-                    case 's': e.preventDefault(); saveQuote(document.querySelector('button[onclick^="saveQuote"]')); break;
+                    
                     case 'p': e.preventDefault(); printQuote(); break;
                     case 'r': e.preventDefault(); resetForm(document.querySelector('button[onclick^="resetForm"]')); break;
                 }
@@ -557,6 +541,7 @@
         });
         document.addEventListener('visibilitychange', function() { if (document.hidden) saveState(); });
         updateUI();
-    </script>
+    
+</script>
 </body>
 </html>
