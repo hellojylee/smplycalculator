@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>심플리 견적 계산기</title>
+    <meta name="description" content="SMPLY(심플리) 요금 계산기 — 구성원 수/자산 수/에이전트 사용 여부에 따라 실시간 견적을 계산합니다.">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --primary-600: #2563eb; --primary-500: #3b82f6; --primary-400: #60a5fa; --primary-50: #eff6ff;
+            --gray-900: #111827; --gray-800: #1f2937; --gray-700: #374151; --gray-600: #4b5563; --gray-500: #6b7280;
+            --gray-400: #9ca3af; --gray-300: #d1d5db; --gray-200: #e5e7eb; --gray-100: #f3f4f6; --gray-50: #f9fafb;
+            --white: #ffffff; --error-500: #ef4444; --error-50: #fef2f2; --success-500: #10b981; --success-50: #f0fdf4;
+            --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05); --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+            --radius: 8px; --radius-lg: 12px;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif; background: linear-gradient(180deg, var(--gray-50) 0%, var(--white) 100%); color: var(--gray-900); line-height: 1.5; min-height: 100vh; }
+        .container { max-width: 1280px; margin: 0 auto; padding: 2rem; }
+        .header { text-align: center; margin-bottom: 3rem; padding: 2rem 0; }
+        .header h1 { font-size: 2.5rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.75rem; letter-spacing: -0.02em; }
+        .header p { font-size: 1.125rem; color: var(--gray-600); max-width: 600px; margin: 0 auto; }
+        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
+        .card { background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); padding: 2rem; border: 1px solid var(--gray-200); transition: box-shadow 0.2s ease; }
+        .card:hover { box-shadow: var(--shadow-lg); }
+        .card-title { font-size: 1.25rem; font-weight: 600; color: var(--gray-900); margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--gray-200); }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-label { display: block; font-size: 0.875rem; font-weight: 500; color: var(--gray-700); margin-bottom: 0.5rem; }
+        .form-input { width: 100%; padding: 0.625rem 0.875rem; border: 1px solid var(--gray-300); border-radius: var(--radius); font-size: 0.875rem; color: var(--gray-900); background: var(--white); transition: all 0.15s ease; }
+        .form-input:focus { outline: none; border-color: var(--primary-500); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        .form-input:disabled { background: var(--gray-100); color: var(--gray-500); cursor: not-allowed; }
+        .form-input.error { border-color: var(--error-500); }
+        .form-helper { font-size: 0.75rem; color: var(--gray-500); margin-top: 0.25rem; }
+        .form-error { font-size: 0.75rem; color: var(--error-500); margin-top: 0.25rem; display: none; }
+        .form-error.show { display: block; }
+        .toggle-wrapper { display: flex; align-items: center; gap: 0.75rem; }
+        .toggle { position: relative; width: 44px; height: 24px; background: var(--gray-300); border-radius: 12px; cursor: pointer; transition: background 0.2s ease; }
+        .toggle.active { background: var(--primary-500); }
+        .toggle-slider { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: var(--white); border-radius: 50%; transition: transform 0.2s ease; box-shadow: var(--shadow-sm); }
+        .toggle.active .toggle-slider { transform: translateX(20px); }
+        .toggle-label { font-size: 0.875rem; color: var(--gray-700); user-select: none; }
+        .calculated-value { display: inline-block; padding: 0.25rem 0.75rem; background: var(--primary-50); color: var(--primary-600); border-radius: var(--radius); font-weight: 500; font-size: 0.875rem; margin-left: 0.5rem; }
+        .pricing-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid var(--gray-100); }
+        .pricing-item:last-child { border-bottom: none; }
+        .pricing-label { font-size: 0.875rem; color: var(--gray-600); }
+        .pricing-sublabel { font-size: 0.7rem; color: var(--gray-400); margin-top: 0.125rem; }
+        .pricing-value { font-size: 1rem; font-weight: 600; color: var(--gray-900); transition: all 0.3s ease; }
+        .pricing-total { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 2px solid var(--gray-200); }
+        .pricing-total .pricing-value { font-size: 1.5rem; color: var(--primary-600); }
+        .plan-badge { display: inline-block; padding: 0.5rem 1rem; background: linear-gradient(135deg, var(--primary-500), var(--primary-600)); color: var(--white); border-radius: var(--radius); font-weight: 600; font-size: 0.875rem; margin-bottom: 1.5rem; box-shadow: var(--shadow-md); }
+        .discount-badge { display: inline-block; padding: 0.25rem 0.5rem; background: var(--success-50); color: var(--success-500); border-radius: var(--radius); font-size: 0.75rem; font-weight: 600; margin-left: 0.5rem; }
+        .quote-summary { background: linear-gradient(135deg, var(--gray-50), var(--white)); border-radius: var(--radius-lg); padding: 2rem; margin-top: 2rem; border: 1px solid var(--gray-200); box-shadow: var(--shadow-xl); }
+        .quote-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid var(--gray-200); }
+        .quote-title { font-size: 1.5rem; font-weight: 700; color: var(--gray-900); }
+        .quote-table { width: 100%; margin-bottom: 2rem; }
+        .quote-row { display: grid; grid-template-columns: 1fr 1fr; padding: 0.75rem 0; border-bottom: 1px solid var(--gray-100); }
+        .quote-row.header { font-weight: 600; color: var(--gray-700); background: var(--gray-50); padding: 1rem; margin: 0 -1rem; padding-left: 1rem; padding-right: 1rem; border-radius: var(--radius); border: none; margin-bottom: 0.5rem; }
+        .quote-label { color: var(--gray-600); font-size: 0.875rem; }
+        .quote-value { text-align: right; font-weight: 500; color: var(--gray-900); font-size: 0.875rem; }
+        .action-buttons { display: flex; gap: 1rem; margin-top: 2rem; }
+        .btn { flex: 1; padding: 0.75rem 1.5rem; border-radius: var(--radius); font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; border: none; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; }
+        .btn-primary { background: var(--primary-500); color: var(--white); }
+        .btn-primary:hover { background: var(--primary-600); transform: translateY(-1px); box-shadow: var(--shadow-lg); }
+        .btn-secondary { background: var(--white); color: var(--gray-700); border: 1px solid var(--gray-300); }
+        .btn-secondary:hover { background: var(--gray-50); border-color: var(--gray-400); }
+        .btn-ghost { background: transparent; color: var(--gray-600); border: 1px solid transparent; }
+        .btn-ghost:hover { background: var(--gray-100); }
+        @media (max-width: 768px) { .main-grid { grid-template-columns: 1fr; } .header h1 { font-size: 2rem; } .container { padding: 1rem; } .card { padding: 1.5rem; } .action-buttons { flex-direction: column; } .btn { width: 100%; } }
+        @media print { body { background: white; } .card { box-shadow: none; border: 1px solid var(--gray-300); } .action-buttons { display: none; } }
+        .fade-in { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
+        .number-transition { transition: all 0.3s cubic-bezier(0.4,0,0.2,1); }
+        .loader { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--gray-300); border-top-color: var(--primary-500); border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg);} }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>심플리 견적 계산기</h1>
+            <p>귀사에 최적화된 요금제를 계산해보세요. 실시간으로 견적이 업데이트됩니다.</p>
+        </div>
+
+        <div class="main-grid">
+            <!-- Input Section -->
+            <div class="card">
+                <h2 class="card-title">사용자 정보 입력</h2>
+                
+                <div class="form-group">
+                    <label class="form-label">에이전트 사용 여부</label>
+                    <div class="toggle-wrapper">
+                        <div class="toggle" id="agentToggle">
+                            <div class="toggle-slider"></div>
+                        </div>
+                        <span class="toggle-label">Professional Plan (에이전트 포함)</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">구성원 수</label>
+                    <input type="number" class="form-input" id="memberCount" min="1" max="1000" value="100" inputmode="numeric">
+                    <div class="form-helper">최소 1명, 최대 1,000명</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">
+                        자산 수
+                        <span class="calculated-value" id="assetBase">기본 제공: 1,000개</span>
+                    </label>
+                    <input type="number" class="form-input" id="assetCount" min="1000" value="1000" inputmode="numeric">
+                    <div class="form-helper" id="assetHelper">최소 필요 자산 수: 1,000개</div>
+                    <div class="form-error" id="assetError">자산 수는 기본 제공량보다 적을 수 없습니다</div>
+                </div>
+
+                <div class="form-group" id="baseAgentGroup" style="display: none;">
+                    <label class="form-label">기본 제공 에이전트 수</label>
+                    <input type="number" class="form-input" id="baseAgentCount" disabled>
+                    <div class="form-helper">구성원 수와 동일하게 제공됩니다</div>
+                </div>
+
+                <div class="form-group" id="additionalAgentGroup" style="display: none;">
+                    <label class="form-label">추가 필요 에이전트 수</label>
+                    <input type="number" class="form-input" id="additionalAgentCount" min="0" value="0" inputmode="numeric">
+                    <div class="form-helper">10개 단위로 과금됩니다</div>
+                </div>
+            </div>
+
+            <!-- Pricing Display Section -->
+            <div class="card">
+                <h2 class="card-title">월 가격 계산</h2>
+                
+                <div class="plan-badge" id="planBadge">Business Plan</div>
+
+                <div class="pricing-item">
+                    <div>
+                        <span class="pricing-label">구성원 가격</span>
+                        <div id="memberPricingInfo" class="pricing-sublabel">100명까지 ₩250,000, 초과 시 10명당 ₩25,000</div>
+                    </div>
+                    <span class="pricing-value number-transition" id="memberPrice">₩250,000</span>
+                </div>
+
+                <div class="pricing-item" id="memberBreakdown" style="display: none;">
+                    <span class="pricing-label" style="font-size: 0.75rem; margin-left: 1rem;">
+                        <span id="memberBreakdownText">기본 (100명까지): ₩250,000</span>
+                    </span>
+                </div>
+
+                <div class="pricing-item">
+                    <div>
+                        <div class="pricing-label">자산 가격</div>
+                        <div class="pricing-sublabel">500개당 ₩50,000 (기본 제공 초과분)</div>
+                    </div>
+                    <span class="pricing-value number-transition" id="assetPrice">₩0</span>
+                </div>
+
+                <div class="pricing-item" id="agentPriceRow" style="display: none;">
+                    <div>
+                        <div class="pricing-label">추가 에이전트 가격</div>
+                        <div class="pricing-sublabel">10개당 ₩25,000</div>
+                    </div>
+                    <span class="pricing-value number-transition" id="agentPrice">₩0</span>
+                </div>
+
+                <div class="pricing-item">
+                    <span class="pricing-label">월 가격</span>
+                    <span class="pricing-value number-transition" id="monthlyPrice">₩250,000</span>
+                </div>
+
+                <div class="pricing-item">
+                    <span class="pricing-label">연 계약 여부</span>
+                    <div class="toggle-wrapper">
+                        <div class="toggle" id="annualToggle">
+                            <div class="toggle-slider"></div>
+                        </div>
+                        <span class="toggle-label">연간 계약 시 20% 할인</span>
+                    </div>
+                </div>
+
+                <div class="pricing-item">
+                    <span class="pricing-label">
+                        할인율
+                        <span class="discount-badge" id="discountBadge" style="display: none;">20% OFF</span>
+                    </span>
+                    <span class="pricing-value number-transition" id="discountRate">0%</span>
+                </div>
+
+                <div class="pricing-total">
+                    <div class="pricing-item">
+                        <span class="pricing-label" style="font-size: 1rem; font-weight: 600;">총 월 가격</span>
+                        <span class="pricing-value number-transition" id="totalMonthlyPrice">₩250,000</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quote Summary Section -->
+        <div class="quote-summary">
+            <div class="quote-header">
+                <h3 class="quote-title">최종 견적서</h3>
+                <div class="plan-badge" id="quotePlanBadge">Business Plan</div>
+            </div>
+
+            <div class="quote-table">
+                <div class="quote-row header">
+                    <div>구성 정보</div>
+                    <div style="text-align: right;">상세 내역</div>
+                </div>
+                
+                <div class="quote-row">
+                    <div class="quote-label">선택 플랜</div>
+                    <div class="quote-value" id="quotePlan">Business Plan</div>
+                </div>
+
+                <div class="quote-row">
+                    <div class="quote-label">구성원 수</div>
+                    <div class="quote-value" id="quoteMemberCount">100명</div>
+                </div>
+
+                <div class="quote-row">
+                    <div class="quote-label">자산 수</div>
+                    <div class="quote-value" id="quoteAssetCount">1,000개 (기본 제공: 1,000개)</div>
+                </div>
+
+                <div class="quote-row" id="quoteAgentRow" style="display: none;">
+                    <div class="quote-label">에이전트 수</div>
+                    <div class="quote-value" id="quoteAgentCount">100개 (추가: 0개)</div>
+                </div>
+
+                <div class="quote-row header" style="margin-top: 1rem;">
+                    <div>요금 상세</div>
+                    <div style="text-align: right;">금액</div>
+                </div>
+
+                <div class="quote-row">
+                    <div class="quote-label">구성원 기본 요금</div>
+                    <div class="quote-value" id="quoteMemberBase">₩250,000</div>
+                </div>
+
+                <div class="quote-row" id="quoteMemberAdditionalRow" style="display: none;">
+                    <div class="quote-label">추가 구성원 요금</div>
+                    <div class="quote-value" id="quoteMemberAdditional">₩0</div>
+                </div>
+
+                <div class="quote-row">
+                    <div class="quote-label">자산 추가 요금</div>
+                    <div class="quote-value" id="quoteAssetPrice">₩0</div>
+                </div>
+
+                <div class="quote-row" id="quoteAgentPriceRow" style="display: none;">
+                    <div class="quote-label">에이전트 추가 요금</div>
+                    <div class="quote-value" id="quoteAgentPrice">₩0</div>
+                </div>
+
+                <div class="quote-row">
+                    <div class="quote-label">월 정가</div>
+                    <div class="quote-value" id="quoteMonthlyBase">₩250,000</div>
+                </div>
+
+                <div class="quote-row">
+                    <div class="quote-label">할인율</div>
+                    <div class="quote-value" id="quoteDiscount">0%</div>
+                </div>
+
+                <div class="quote-row header" style="margin-top: 1rem; background: var(--primary-50);">
+                    <div style="color: var(--primary-600);">최종 결제 금액</div>
+                    <div style="text-align: right;"></div>
+                </div>
+
+                <div class="quote-row">
+                    <div class="quote-label" style="font-weight: 600;">월 결제 금액</div>
+                    <div class="quote-value" style="font-size: 1.125rem; color: var(--primary-600);" id="quoteFinalMonthly">₩250,000</div>
+                </div>
+
+                <div class="quote-row">
+                    <div class="quote-label" style="font-weight: 600;">연간 결제 금액</div>
+                    <div class="quote-value" style="font-size: 1.125rem; color: var(--primary-600);" id="quoteFinalAnnual">₩3,000,000</div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn btn-primary" onclick="saveQuote(this)">
+                    <span>💾</span> 견적서 저장
+                </button>
+                <button class="btn btn-primary" onclick="printQuote()">
+                    <span>🖨️</span> 견적서 출력
+                </button>
+                <button class="btn btn-secondary" onclick="resetForm(this)">
+                    <span>↻</span> 초기화
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        let state = { useAgent: false, memberCount: 100, assetCount: 1000, additionalAgentCount: 0, annualContract: false };
+
+        function loadState() {
+            const saved = localStorage.getItem('pricingCalculatorState');
+            if (saved) { try { state = JSON.parse(saved); applyStateToUI(); } catch (e) { console.error('Failed to load saved state:', e); } }
+        }
+        function saveState() { localStorage.setItem('pricingCalculatorState', JSON.stringify(state)); }
+
+        function applyStateToUI() {
+            document.getElementById('memberCount').value = state.memberCount;
+            document.getElementById('assetCount').value = state.assetCount;
+            document.getElementById('additionalAgentCount').value = state.additionalAgentCount;
+            document.getElementById('agentToggle').classList.toggle('active', state.useAgent);
+            document.getElementById('annualToggle').classList.toggle('active', state.annualContract);
+            updateUI();
+        }
+
+        function formatCurrency(amount) { return '₩' + (amount || 0).toLocaleString('ko-KR'); }
+
+        function calculatePrices() {
+            const prices = { memberPrice: 0, memberBase: 0, memberAdditional: 0, assetPrice: 0, agentPrice: 0, monthlyPrice: 0, discount: 0, totalMonthlyPrice: 0 };
+            // Member pricing
+            if (state.useAgent) {
+                prices.memberBase = 500000;
+                if (state.memberCount > 100) {
+                    const additionalMembers = state.memberCount - 100;
+                    const additionalBlocks = Math.ceil(additionalMembers / 10);
+                    prices.memberAdditional = additionalBlocks * 50000;
+                }
+            } else {
+                prices.memberBase = 250000;
+                if (state.memberCount > 100) {
+                    const additionalMembers = state.memberCount - 100;
+                    const additionalBlocks = Math.ceil(additionalMembers / 10);
+                    prices.memberAdditional = additionalBlocks * 25000;
+                }
+            }
+            prices.memberPrice = prices.memberBase + prices.memberAdditional;
+
+            // Assets
+            const baseAssets = state.memberCount <= 100 ? 1000 : state.memberCount * 10;
+            if (state.assetCount > baseAssets) {
+                const additionalAssets = state.assetCount - baseAssets;
+                const assetBlocks = Math.ceil(additionalAssets / 500);
+                prices.assetPrice = assetBlocks * 50000;
+            }
+
+            // Agents
+            if (state.useAgent && state.additionalAgentCount > 0) {
+                const agentBlocks = Math.ceil(state.additionalAgentCount / 10);
+                prices.agentPrice = agentBlocks * 25000;
+            }
+
+            // Total
+            prices.monthlyPrice = prices.memberPrice + prices.assetPrice + prices.agentPrice;
+            if (state.annualContract) { prices.discount = 0.2; prices.totalMonthlyPrice = Math.round(prices.monthlyPrice * 0.8); }
+            else { prices.totalMonthlyPrice = prices.monthlyPrice; }
+
+            return prices;
+        }
+
+        function updateUI() {
+            const prices = calculatePrices();
+            const baseAssets = state.memberCount <= 100 ? 1000 : state.memberCount * 10;
+
+            const planName = state.useAgent ? 'Professional Plan' : 'Business Plan';
+            document.getElementById('planBadge').textContent = planName;
+            document.getElementById('quotePlanBadge').textContent = planName;
+            document.getElementById('quotePlan').textContent = planName;
+
+            // Agent fields visibility
+            const showAgents = state.useAgent;
+            document.getElementById('baseAgentGroup').style.display = showAgents ? 'block' : 'none';
+            document.getElementById('additionalAgentGroup').style.display = showAgents ? 'block' : 'none';
+            document.getElementById('agentPriceRow').style.display = showAgents ? 'flex' : 'none';
+            document.getElementById('quoteAgentRow').style.display = showAgents ? 'flex' : 'none';
+            document.getElementById('quoteAgentPriceRow').style.display = showAgents ? 'flex' : 'none';
+            if (showAgents) { document.getElementById('baseAgentCount').value = state.memberCount; }
+
+            // Asset hints & min
+            document.getElementById('assetBase').textContent = `기본 제공: ${baseAssets.toLocaleString()}개`;
+            document.getElementById('assetHelper').textContent = `최소 필요 자산 수: ${baseAssets.toLocaleString()}개`;
+            document.getElementById('assetCount').min = baseAssets;
+
+            // Prices
+            updatePriceElement('memberPrice', prices.memberPrice);
+            updatePriceElement('assetPrice', prices.assetPrice);
+            updatePriceElement('agentPrice', prices.agentPrice);
+            updatePriceElement('monthlyPrice', prices.monthlyPrice);
+            updatePriceElement('totalMonthlyPrice', prices.totalMonthlyPrice);
+
+            // Member pricing info
+            const memberPricingInfo = document.getElementById('memberPricingInfo');
+            memberPricingInfo.textContent = state.useAgent
+                ? '100명까지 ₩500,000, 초과 시 10명당 ₩50,000'
+                : '100명까지 ₩250,000, 초과 시 10명당 ₩25,000';
+
+            // Breakdown
+            if (state.memberCount > 100) {
+                document.getElementById('memberBreakdown').style.display = 'flex';
+                const additionalMembers = state.memberCount - 100;
+                const basePriceText = state.useAgent ? '₩500,000' : '₩250,000';
+                document.getElementById('memberBreakdownText').textContent =
+                    `기본 (100명까지): ${basePriceText} + 추가 ${additionalMembers}명: ${formatCurrency(prices.memberAdditional)}`;
+            } else {
+                document.getElementById('memberBreakdown').style.display = 'none';
+            }
+
+            // Discount
+            document.getElementById('discountRate').textContent = state.annualContract ? '20%' : '0%';
+            document.getElementById('discountBadge').style.display = state.annualContract ? 'inline-block' : 'none';
+
+            // Quote
+            document.getElementById('quoteMemberCount').textContent = `${state.memberCount}명`;
+            document.getElementById('quoteAssetCount').textContent = `${state.assetCount.toLocaleString()}개 (기본 제공: ${baseAssets.toLocaleString()}개)`;
+            if (state.useAgent) {
+                const totalAgents = state.memberCount + state.additionalAgentCount;
+                document.getElementById('quoteAgentCount').textContent = `${totalAgents}개 (추가: ${state.additionalAgentCount}개)`;
+            }
+            document.getElementById('quoteMemberBase').textContent = formatCurrency(prices.memberBase);
+            document.getElementById('quoteMemberAdditionalRow').style.display = prices.memberAdditional > 0 ? 'flex' : 'none';
+            document.getElementById('quoteMemberAdditional').textContent = formatCurrency(prices.memberAdditional);
+            document.getElementById('quoteAssetPrice').textContent = formatCurrency(prices.assetPrice);
+            document.getElementById('quoteAgentPrice').textContent = formatCurrency(prices.agentPrice);
+            document.getElementById('quoteMonthlyBase').textContent = formatCurrency(prices.monthlyPrice);
+            document.getElementById('quoteDiscount').textContent = state.annualContract ? '20% (연간 계약)' : '0%';
+            document.getElementById('quoteFinalMonthly').textContent = formatCurrency(prices.totalMonthlyPrice);
+            document.getElementById('quoteFinalAnnual').textContent = formatCurrency(prices.totalMonthlyPrice * 12);
+
+            saveState();
+        }
+
+        function updatePriceElement(elementId, newValue) {
+            const element = document.getElementById(elementId);
+            const currentValue = parseInt((element.textContent || '').replace(/[^0-9]/g, '')) || 0;
+            if (currentValue !== newValue) {
+                element.style.transform = 'scale(1.05)';
+                element.textContent = formatCurrency(newValue);
+                setTimeout(() => { element.style.transform = 'scale(1)'; }, 200);
+            } else {
+                element.textContent = formatCurrency(newValue);
+            }
+        }
+
+        document.getElementById('agentToggle').addEventListener('click', function() {
+            this.classList.toggle('active');
+            state.useAgent = this.classList.contains('active');
+            updateUI();
+        });
+        document.getElementById('annualToggle').addEventListener('click', function() {
+            this.classList.toggle('active');
+            state.annualContract = this.classList.contains('active');
+            updateUI();
+        });
+        document.getElementById('memberCount').addEventListener('input', function() {
+            const value = parseInt(this.value) || 1;
+            if (value >= 1 && value <= 1000) {
+                state.memberCount = value;
+                if (state.useAgent) { document.getElementById('baseAgentCount').value = value; }
+                const minAssets = value <= 100 ? 1000 : value * 10;
+                if (state.assetCount < minAssets) {
+                    state.assetCount = minAssets;
+                    document.getElementById('assetCount').value = minAssets;
+                }
+                updateUI();
+            }
+        });
+        document.getElementById('assetCount').addEventListener('input', function() {
+            const value = parseInt(this.value) || 0;
+            const minAssets = state.memberCount <= 100 ? 1000 : state.memberCount * 10;
+            if (value >= minAssets) {
+                state.assetCount = value;
+                document.getElementById('assetError').classList.remove('show');
+                this.classList.remove('error');
+                updateUI();
+            } else {
+                document.getElementById('assetError').classList.add('show');
+                this.classList.add('error');
+            }
+        });
+        document.getElementById('additionalAgentCount').addEventListener('input', function() {
+            const value = parseInt(this.value) || 0;
+            if (value >= 0) { state.additionalAgentCount = value; updateUI(); }
+        });
+
+        function saveQuote(btn) {
+            const quoteData = { date: new Date().toLocaleDateString('ko-KR'), plan: state.useAgent ? 'Professional Plan' : 'Business Plan', configuration: state, prices: calculatePrices() };
+            const dataStr = JSON.stringify(quoteData, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+            const exportFileDefaultName = `simply_quote_${new Date().getTime()}.json`;
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="loader"></span> 저장 중...'; btn.disabled = true;
+            setTimeout(() => {
+                btn.innerHTML = '<span>✓</span> 저장 완료!';
+                setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 1500);
+            }, 500);
+        }
+
+        function printQuote() { window.print(); }
+
+        function resetForm(btn) {
+            if (confirm('모든 입력값을 초기화하시겠습니까?')) {
+                state = { useAgent: false, memberCount: 100, assetCount: 1000, additionalAgentCount: 0, annualContract: false };
+                document.getElementById('agentToggle').classList.remove('active');
+                document.getElementById('annualToggle').classList.remove('active');
+                document.getElementById('memberCount').value = 100;
+                document.getElementById('assetCount').value = 1000;
+                document.getElementById('additionalAgentCount').value = 0;
+                localStorage.removeItem('pricingCalculatorState');
+                updateUI();
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span>✓</span> 초기화 완료!'; btn.disabled = true;
+                setTimeout(() => { btn.innerHTML = originalText; btn.disabled = false; }, 1500);
+            }
+        }
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+            });
+        });
+
+        document.getElementById('memberCount').addEventListener('change', function() {
+            let value = parseInt(this.value) || 1;
+            value = Math.max(1, Math.min(1000, value));
+            this.value = value;
+            state.memberCount = value;
+            updateUI();
+        });
+        document.getElementById('additionalAgentCount').addEventListener('change', function() {
+            let value = parseInt(this.value) || 0;
+            value = Math.max(0, value);
+            this.value = value;
+            state.additionalAgentCount = value;
+            updateUI();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key) {
+                    case 's': e.preventDefault(); saveQuote(document.querySelector('button[onclick^="saveQuote"]')); break;
+                    case 'p': e.preventDefault(); printQuote(); break;
+                    case 'r': e.preventDefault(); resetForm(document.querySelector('button[onclick^="resetForm"]')); break;
+                }
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.card').forEach((card, index) => {
+                card.style.opacity = '0'; card.style.transform = 'translateY(20px)';
+                setTimeout(() => { card.style.transition = 'all 0.5s ease'; card.style.opacity = '1'; card.style.transform = 'translateY(0)'; }, index * 100);
+            });
+            loadState(); updateUI();
+        });
+        document.addEventListener('visibilitychange', function() { if (document.hidden) saveState(); });
+        updateUI();
+    </script>
+</body>
+</html>
